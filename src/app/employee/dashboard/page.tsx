@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { getJakartaDateString, checkIsLate, formatReadableDate } from '@/lib/date-utils'
-import { CalendarCheck, Clock, QrCode, AlertTriangle } from 'lucide-react'
+import { CalendarCheck, Clock, QrCode, AlertTriangle, UserCheck } from 'lucide-react'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -15,6 +15,10 @@ export default async function EmployeeDashboardPage() {
   const userId = userPayload?.userId
 
   if (!userId) return null
+
+  // Fetch dbUser to check face enrollment status
+  const dbUser = await prisma.user.findUnique({ where: { id: userId } })
+  const needsFaceEnrollment = !dbUser?.face_descriptor
 
   const todayStr = getJakartaDateString()
   const today = new Date(todayStr)
@@ -82,16 +86,46 @@ export default async function EmployeeDashboardPage() {
           <h2 className="text-2xl font-bold text-slate-800">Selamat Datang, {userPayload?.name || 'Karyawan'}!</h2>
           <p className="text-xs text-slate-500 mt-1 font-medium">Hari ini: {formatReadableDate(today)}</p>
         </div>
-        {activeSessions.length > 0 && (
+        
+        {/* QR Link - Blocked if needs face enrollment or already checked out */}
+        {activeSessions.length > 0 && !todayAttendance?.check_out_time ? (
           <Link
-            href="/employee/scan"
+            href={needsFaceEnrollment ? "/employee/register-face" : "/employee/scan"}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all animate-pulse"
           >
             <QrCode className="w-4 h-4" />
-            Sesi Absen Aktif — Scan Sekarang
+            {todayAttendance?.check_in_time ? 'Absen Pulang — Scan Sekarang' : 'Absen Masuk — Scan Sekarang'}
           </Link>
-        )}
+        ) : todayAttendance?.check_out_time ? (
+          <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-500 text-xs font-semibold border border-slate-200">
+            <CalendarCheck className="w-4 h-4" />
+            Absensi Selesai
+          </div>
+        ) : null}
       </div>
+
+      {/* Face Enrollment Required Warning Callout */}
+      {needsFaceEnrollment && (
+        <div className="p-5 bg-blue-50 border-2 border-dashed border-blue-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-850">Pendaftaran Wajah Diperlukan</h4>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-xl">
+                Anda belum mendaftarkan data wajah. Untuk mencegah kecurangan absensi, Anda wajib mendaftarkan data wajah sebelum melakukan pemindaian QR Code.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/employee/register-face"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shrink-0 self-start sm:self-center shadow-lg shadow-blue-100"
+          >
+            Daftarkan Wajah Sekarang
+          </Link>
+        </div>
+      )}
 
       {/* Today's Status Card */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
