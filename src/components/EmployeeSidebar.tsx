@@ -3,13 +3,14 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, QrCode, CalendarRange, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, QrCode, CalendarRange, LogOut, Menu, X, UserCheck } from 'lucide-react'
 
 interface EmployeeSidebarProps {
   officeName: string
+  hasFace?: boolean
 }
 
-export default function EmployeeSidebar({ officeName }: EmployeeSidebarProps) {
+export default function EmployeeSidebar({ officeName, hasFace }: EmployeeSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -25,6 +26,7 @@ export default function EmployeeSidebar({ officeName }: EmployeeSidebarProps) {
   const menuItems = [
     { name: 'Dashboard', path: '/employee/dashboard', icon: LayoutDashboard },
     { name: 'Scan QR Absen', path: '/employee/scan', icon: QrCode },
+    ...(!hasFace ? [{ name: 'Registrasi Wajah', path: '/employee/register-face', icon: UserCheck }] : []),
     { name: 'Riwayat Absensi', path: '/employee/history', icon: CalendarRange },
   ]
 

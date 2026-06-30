@@ -18,9 +18,12 @@ export default async function EmployeeLayout({
   const officeNameSetting = await prisma.setting.findUnique({ where: { key: 'office_name' } })
   const officeName = officeNameSetting?.value || 'ERKA'
 
+  const dbUser = userPayload ? await prisma.user.findUnique({ where: { id: userPayload.userId } }) : null
+  const hasFaceDescriptor = !!dbUser?.face_descriptor
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
-      <EmployeeSidebar officeName={officeName} />
+      <EmployeeSidebar officeName={officeName} hasFace={hasFaceDescriptor} />
 
       <div className="flex-1 lg:pl-64 flex flex-col">
         <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
