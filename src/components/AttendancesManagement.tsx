@@ -16,6 +16,8 @@ interface AttendanceRecord {
   status: string
   notes: string
   isLate: boolean
+  faceImageIn: string
+  faceImageOut: string
 }
 
 interface EmployeeOption {
@@ -48,6 +50,7 @@ export default function AttendancesManagement({
   // Filter form states
   const [dateVal, setDateVal] = useState(dateFilter)
   const [userIdVal, setUserIdVal] = useState(userIdFilter)
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [statusVal, setStatusVal] = useState(statusFilter)
 
   // Custom searchable employee dropdown states
@@ -347,6 +350,7 @@ export default function AttendancesManagement({
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Masuk</th>
                 <th className="px-6 py-4">Pulang</th>
+                <th className="px-6 py-4">Foto Bukti</th>
                 <th className="px-6 py-4">Keterangan</th>
                 <th className="px-6 py-4 text-right">Aksi</th>
               </tr>
@@ -378,6 +382,44 @@ export default function AttendancesManagement({
                       )}
                     </td>
                     <td className="px-6 py-4 text-slate-600 font-medium">{rec.checkOutTime || '-'}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2 items-center">
+                        {rec.faceImageIn ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <img 
+                              src={rec.faceImageIn} 
+                              alt="Face in proof"
+                              onClick={() => setLightboxImage(rec.faceImageIn)}
+                              className="w-8 h-8 rounded-lg object-cover cursor-pointer hover:scale-110 border border-slate-200 shadow-sm transition-all"
+                            />
+                            <span className="text-[8px] text-slate-400 font-bold uppercase">Masuk</span>
+                          </div>
+                        ) : null}
+
+                        {rec.faceImageOut ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <img 
+                              src={rec.faceImageOut} 
+                              alt="Face out proof"
+                              onClick={() => setLightboxImage(rec.faceImageOut)}
+                              className="w-8 h-8 rounded-lg object-cover cursor-pointer hover:scale-110 border border-slate-200 shadow-sm transition-all"
+                            />
+                            <span className="text-[8px] text-slate-400 font-bold uppercase">Pulang</span>
+                          </div>
+                        ) : null}
+
+                        {/* Show Absen QR text badge if QR method was used (no face snap proof exists) */}
+                        {((rec.checkInTime && !rec.faceImageIn) || (rec.checkOutTime && !rec.faceImageOut)) && (
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md border border-slate-150 shadow-sm">
+                            Absen QR
+                          </span>
+                        )}
+
+                        {!rec.faceImageIn && !rec.faceImageOut && !rec.checkInTime && !rec.checkOutTime && (
+                          <span className="text-[10px] text-slate-400 font-medium italic">Tidak ada</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-slate-400 font-medium text-xs max-w-[150px] truncate" title={rec.notes}>
                       {rec.notes || '-'}
                     </td>
@@ -502,6 +544,29 @@ export default function AttendancesManagement({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* LIGHTBOX OVERLAY */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div className="relative max-w-sm w-full bg-white rounded-2xl overflow-hidden p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={() => setLightboxImage(null)}
+              className="absolute right-6 top-6 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img 
+              src={lightboxImage} 
+              alt="Verification face preview" 
+              className="w-full h-auto aspect-square object-cover rounded-xl border border-slate-100"
+            />
+            <p className="text-center text-xs font-bold text-slate-700 mt-3">Foto Bukti Verifikasi Wajah</p>
           </div>
         </div>
       )}

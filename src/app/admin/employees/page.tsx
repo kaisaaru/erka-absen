@@ -19,6 +19,7 @@ export default async function AdminEmployeesPage() {
     position: emp.position || '',
     employee_id: emp.employee_id || '',
     avatar: emp.avatar || '',
+    faceImageRegistered: emp.face_image_registered || '',
   }))
 
   return <EmployeesManagement initialEmployees={plainEmployees} />
