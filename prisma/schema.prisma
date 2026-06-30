@@ -1,0 +1,98 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                Int                 @id @default(autoincrement())
+  name              String
+  email             String              @unique
+  email_verified_at DateTime?
+  password          String
+  role              String              @default("employee") // admin or employee
+  phone             String?             @db.VarChar(20)
+  position          String?             @db.VarChar(100)
+  employee_id       String?             @unique @db.VarChar(50)
+  avatar            String?
+  created_at        DateTime            @default(now())
+  updated_at        DateTime            @updatedAt
+  sessions          AttendanceSession[] @relation("CreatedBy")
+  attendances       Attendance[]
+  logs              ActivityLog[]
+
+  @@index([role])
+  @@map("users")
+}
+
+model Setting {
+  id         Int      @id @default(autoincrement())
+  key        String   @unique
+  value      String?  @db.Text
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model AttendanceSession {
+  id                  Int          @id @default(autoincrement())
+  created_by          Int
+  session_date        DateTime     @db.Date
+  type                String       // check_in or check_out
+  qr_token            String       @unique @db.VarChar(64)
+  qr_expires_at       DateTime
+  qr_duration_minutes Int          @default(5)
+  status              String       @default("active") // active, expired, closed
+  created_at          DateTime     @default(now())
+  updated_at          DateTime     @updatedAt
+  creator             User         @relation("CreatedBy", fields: [created_by], references: [id], onDelete: Cascade)
+  attendances         Attendance[]
+
+  @@index([session_date])
+  @@index([status])
+  @@index([qr_expires_at])
+  @@map("attendance_sessions")
+}
+
+model Attendance {
+  id              Int                @id @default(autoincrement())
+  user_id         Int
+  session_id      Int?
+  attendance_date DateTime           @db.Date
+  check_in_time   String?            // time format e.g. "08:15:00"
+  check_out_time  String?            // time format e.g. "17:01:00"
+  status          String             @default("hadir") // hadir, wfh, tugas_luar, izin, sakit, alpha
+  notes           String?            @db.Text
+  ip_address      String?            @db.VarChar(45)
+  user_agent      String?            @db.Text
+  created_at      DateTime           @default(now())
+  updated_at      DateTime           @updatedAt
+  user            User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  session         AttendanceSession? @relation(fields: [session_id], references: [id], onDelete: SetNull)
+
+  @@unique([user_id, session_id])
+  @@index([attendance_date])
+  @@index([status])
+  @@index([user_id, attendance_date])
+  @@map("attendances")
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  user_id     Int?
+  activity    String
+  description String   @db.Text
+  ip_address  String?  @db.VarChar(45)
+  user_agent  String?  @db.Text
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  user        User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@map("activity_logs")
+}
