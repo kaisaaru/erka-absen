@@ -27,10 +27,15 @@ export async function GET(request: Request) {
     const toleranceMinutes = Number(toleranceSet?.value || '15')
     const officeName = officeNameSet?.value || 'ERKA'
 
+    // Use UTC-explicit dates so filtering is timezone-independent
+    // attendance_date is stored as new Date("YYYY-MM-DD") which is UTC midnight
+    const start = new Date(startDate + 'T00:00:00.000Z')
+    const end = new Date(endDate + 'T23:59:59.999Z')
+
     const where: any = {
       attendance_date: {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
+        gte: start,
+        lte: end,
       },
     }
 
@@ -85,7 +90,7 @@ export async function GET(request: Request) {
         statusLabels[att.status] || att.status,
         att.check_in_time || '-',
         att.check_out_time || '-',
-        isLate ? 'Ya' : 'Tidak',
+        isLate ? 'Ya' : '-',
         att.notes || '-',
       ]
     })
@@ -113,6 +118,13 @@ export async function GET(request: Request) {
         6: { halign: 'center', cellWidth: 18 },
         7: { halign: 'center', cellWidth: 18 },
         8: { halign: 'center', cellWidth: 16 },
+      },
+      // Color late column (index 8) red if value is 'Ya'
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 8 && data.cell.raw === 'Ya') {
+          data.cell.styles.textColor = [220, 38, 38] // red-600
+          data.cell.styles.fontStyle = 'bold'
+        }
       },
     })
 

@@ -26,10 +26,15 @@ export async function GET(request: Request) {
     const toleranceMinutes = Number(toleranceSet?.value || '15')
     const officeName = officeNameSet?.value || 'ERKA'
 
+    // Use UTC-explicit dates so filtering is timezone-independent
+    // attendance_date is stored as new Date("YYYY-MM-DD") which is UTC midnight
+    const start = new Date(startDate + 'T00:00:00.000Z')
+    const end = new Date(endDate + 'T23:59:59.999Z')
+
     const where: any = {
       attendance_date: {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
+        gte: start,
+        lte: end,
       },
     }
 
@@ -119,7 +124,7 @@ export async function GET(request: Request) {
         statusLabels[att.status] || att.status,
         att.check_in_time || '-',
         att.check_out_time || '-',
-        isLate ? 'Ya' : 'Tidak',
+        isLate ? 'Ya' : '-',
         att.notes || '-',
       ])
 
@@ -132,10 +137,22 @@ export async function GET(request: Request) {
         }
       })
 
+      // Style the "Terlambat" cell (column 9, index 9)
+      const lateCell = dataRow.getCell(9)
+      if (isLate) {
+        lateCell.font = { bold: true, color: { argb: 'DC2626' } } // red-600
+        lateCell.alignment = { horizontal: 'center' }
+      } else {
+        lateCell.alignment = { horizontal: 'center' }
+      }
+
       // Alternating row colors
       if (idx % 2 === 0) {
         dataRow.eachCell((cell) => {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F8FAFC' } }
+          // Don't override the red color on late cell
+          if (cell.address !== lateCell.address || !isLate) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F8FAFC' } }
+          }
         })
       }
     })
