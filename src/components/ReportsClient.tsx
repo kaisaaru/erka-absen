@@ -6,7 +6,9 @@ import { FileSpreadsheet, FileText, Download, AlertCircle, CheckCircle } from 'l
 interface EmployeeOption { id: number; name: string }
 
 export default function ReportsClient({ employees }: { employees: EmployeeOption[] }) {
-  const today = new Date().toISOString().split('T')[0]
+  // Use Jakarta (WIB, UTC+7) date as default to match how attendance_date is stored
+  const jakartaNow = new Date(Date.now() + 7 * 60 * 60 * 1000)
+  const today = jakartaNow.toISOString().split('T')[0]
   const firstOfMonth = today.substring(0, 8) + '01'
 
   const [startDate, setStartDate] = useState(firstOfMonth)
