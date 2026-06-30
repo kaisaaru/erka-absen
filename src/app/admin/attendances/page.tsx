@@ -83,6 +83,8 @@ export default async function AdminAttendancesPage({
       status: att.status,
       notes: att.notes || '',
       isLate: isLateVal,
+      faceImageIn: att.face_image_in || '',
+      faceImageOut: att.face_image_out || '',
     }
   })
 

@@ -17,8 +17,40 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
   const [tolerance, setTolerance] = useState(settings.office_late_tolerance_minutes || '15')
 
   const [loading, setLoading] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  const handleResetDb = async () => {
+    const confirmReset = window.confirm(
+      'APAKAH ANDA YAKIN?\n\nTindakan ini akan MENGHAPUS SEMUA DATA absensi, log aktivitas, sesi QR, dan menyetel ulang daftar karyawan ke data awal (seed).\n\nSemua foto bukti verifikasi wajah juga akan terhapus. Tindakan ini tidak dapat dibatalkan!'
+    )
+    if (!confirmReset) return
+
+    setResetLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const res = await fetch('/api/admin/reset-db', {
+        method: 'POST',
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        setSuccess('Database berhasil di-reset dan di-seed kembali ke data awal.')
+        router.refresh()
+        setTimeout(() => setSuccess(''), 6000)
+      } else {
+        setError(data.message || 'Gagal mereset database.')
+      }
+    } catch (err) {
+      setError('Koneksi server gagal saat mereset database.')
+    } finally {
+      setResetLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -157,6 +189,31 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
           </button>
         </div>
       </form>
+
+      {/* Danger Zone */}
+      <div className="bg-red-55/20 rounded-2xl border border-red-100 p-6 sm:p-8 space-y-4">
+        <div>
+          <h3 className="text-sm font-bold text-red-800 uppercase tracking-wider mb-1">Danger Zone</h3>
+          <p className="text-xs text-slate-500">Gunakan fitur ini untuk mereset dan memulihkan database ke kondisi awal.</p>
+        </div>
+
+        <div className="pt-2 border-t border-red-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="max-w-md">
+            <h4 className="text-xs font-bold text-slate-800">Reset & Seed Ulang Database</h4>
+            <p className="text-[10px] text-slate-400 mt-1 font-semibold leading-relaxed">
+              Semua data transaksi absensi akan dihapus total. Database disinkronkan kembali ke data awal (user admin: admin@erka.com, karyawan default: andi, budi, dll.).
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={resetLoading}
+            onClick={handleResetDb}
+            className="px-5 py-2.5 text-xs font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 shrink-0 self-start sm:self-center"
+          >
+            {resetLoading ? 'Proses Reset...' : 'Reset & Seed Database'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

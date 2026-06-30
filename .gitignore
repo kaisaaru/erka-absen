@@ -46,3 +46,6 @@ next-env.d.ts
 CLAUDE.md
 AGENTS.md
 .agents/
+
+# Scratch workspace
+scratch/

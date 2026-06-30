@@ -12,6 +12,7 @@ interface Employee {
   position: string
   employee_id: string
   avatar: string
+  faceImageRegistered?: string
 }
 
 interface EmployeesManagementProps {
@@ -44,6 +45,7 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [isPending, startTransition] = useTransition()
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
 
   // Filter employees based on search term when Cari is clicked or search state is filtered
   const filteredEmployees = employees.filter(emp => 
@@ -255,6 +257,7 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
                 <th className="px-6 py-4">Nip</th>
                 <th className="px-6 py-4">Jabatan</th>
                 <th className="px-6 py-4">Telepon</th>
+                <th className="px-6 py-4">Wajah Regis</th>
                 <th className="px-6 py-4 text-right">Aksi</th>
               </tr>
             </thead>
@@ -264,9 +267,17 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
                   <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors text-slate-700">
                     <td className="px-6 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-sm">
-                          {emp.name.substring(0, 1).toUpperCase()}
-                        </div>
+                        {emp.avatar ? (
+                          <img 
+                            src={emp.avatar} 
+                            alt={emp.name} 
+                            className="w-8 h-8 rounded-full object-cover border border-slate-200"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-sm">
+                            {emp.name.substring(0, 1).toUpperCase()}
+                          </div>
+                        )}
                         <div>
                           <p className="font-bold text-slate-800 leading-none">{emp.name}</p>
                           <p className="text-[10px] text-slate-400 mt-1 font-semibold">{emp.email}</p>
@@ -276,6 +287,18 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
                     <td className="px-6 py-3.5 font-semibold text-slate-700">{emp.employee_id || '-'}</td>
                     <td className="px-6 py-3.5 font-semibold text-slate-700">{emp.position || '-'}</td>
                     <td className="px-6 py-3.5 font-semibold text-slate-700">{emp.phone || '-'}</td>
+                    <td className="px-6 py-3.5">
+                      {emp.faceImageRegistered ? (
+                        <img 
+                          src={emp.faceImageRegistered} 
+                          alt="Face registration proof"
+                          onClick={() => setLightboxImage(emp.faceImageRegistered || null)}
+                          className="w-8 h-8 rounded-lg object-cover cursor-pointer hover:scale-110 border border-slate-200 shadow-sm transition-all"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-medium italic">Belum terdaftar</span>
+                      )}
+                    </td>
                     <td className="px-6 py-3.5 text-right">
                       <div className="flex justify-end gap-3">
                         <button
@@ -573,6 +596,29 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
                 {loading ? 'Menghapus...' : 'Ya, Hapus'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* LIGHTBOX OVERLAY */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div className="relative max-w-sm w-full bg-white rounded-2xl overflow-hidden p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={() => setLightboxImage(null)}
+              className="absolute right-6 top-6 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img 
+              src={lightboxImage} 
+              alt="Registered face details" 
+              className="w-full h-auto aspect-square object-cover rounded-xl border border-slate-100"
+            />
+            <p className="text-center text-xs font-bold text-slate-700 mt-3">Foto Registrasi Awal Wajah Karyawan</p>
           </div>
         </div>
       )}
