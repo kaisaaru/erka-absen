@@ -4,6 +4,15 @@ import { getUserFromRequest } from '@/lib/auth'
 import { checkIsLate, getJakartaTimeString, getJakartaDateString } from '@/lib/date-utils'
 import { recordLog } from '@/lib/logger'
 
+function getEuclideanDistance(arr1: number[], arr2: number[]): number {
+  if (arr1.length !== arr2.length) return 1.0
+  let sum = 0
+  for (let i = 0; i < arr1.length; i++) {
+    sum += Math.pow(arr1[i] - arr2[i], 2)
+  }
+  return Math.sqrt(sum)
+}
+
 export async function POST(request: Request) {
   try {
     const userPayload = getUserFromRequest(request)
@@ -14,7 +23,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { token, face_image, is_face_only } = await request.json()
+    const { token, face_image, face_descriptor, is_face_only } = await request.json()
 
     if (!token && !is_face_only) {
       return NextResponse.json(
@@ -38,6 +47,46 @@ export async function POST(request: Request) {
     const toleranceMinutes = Number(toleranceSet?.value || '15')
 
     const userId = userPayload.userId
+
+    // Fetch user and check face_descriptor
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { face_descriptor: true }
+    })
+
+    if (!user || !user.face_descriptor) {
+      return NextResponse.json(
+        { success: false, message: 'Wajah Anda belum terdaftar. Daftarkan wajah Anda terlebih dahulu.' },
+        { status: 400 }
+      )
+    }
+
+    // Verify Face Descriptor
+    if (!face_descriptor || !Array.isArray(face_descriptor)) {
+      return NextResponse.json(
+        { success: false, message: 'Verifikasi wajah diperlukan untuk melakukan absensi.' },
+        { status: 400 }
+      )
+    }
+
+    let dbDescriptor: number[] = []
+    try {
+      dbDescriptor = JSON.parse(user.face_descriptor)
+    } catch (e) {
+      return NextResponse.json(
+        { success: false, message: 'Data pendaftaran wajah di database tidak valid.' },
+        { status: 500 }
+      )
+    }
+
+    const distance = getEuclideanDistance(face_descriptor, dbDescriptor)
+    // Enforce threshold <= 0.5 for verification (strict backend verification)
+    if (distance > 0.5) {
+      return NextResponse.json(
+        { success: false, message: 'Verifikasi gagal: Wajah tidak cocok dengan data pendaftaran Anda.' },
+        { status: 400 }
+      )
+    }
 
     // Find the session by token or active session today
     let session = null

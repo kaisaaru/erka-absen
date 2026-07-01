@@ -75,8 +75,7 @@ export default function EmployeeScanContent() {
             
             scanner.stop().then(() => {
               setCameraActive(false)
-              setToken(finalToken)
-              handleFinalSubmitQR(finalToken)
+              startFaceVerification(finalToken)
             }).catch(err => console.error('Error stopping QR camera:', err))
           },
           () => {}
@@ -169,8 +168,8 @@ export default function EmployeeScanContent() {
               new Float32Array(registeredDescriptor)
             )
 
-            // Threshold <= 0.6 is match
-            if (distance <= 0.6) {
+            // Threshold <= 0.5 is match (stricter than 0.6 to prevent false matches)
+            if (distance <= 0.5) {
               setFaceProgress((prev) => {
                 const next = prev + 25
                 if (next >= 100) {
@@ -244,52 +243,8 @@ export default function EmployeeScanContent() {
         body: JSON.stringify({
           token: token || undefined,
           face_image: faceImageBase64,
+          face_descriptor: Array.from(descriptor), // send array of floats
           is_face_only: !token // if token is empty, it is face scan only
-        }),
-      })
-
-      const data = await res.json()
-      setStep('result')
-      setResult({
-        success: data.success,
-        message: data.message,
-        type: data.type,
-        isLate: data.isLate,
-      })
-
-      if (data.success) {
-        setTimeout(() => {
-          router.push('/employee/dashboard')
-          router.refresh()
-        }, 3000)
-      }
-    } catch (err) {
-      setStep('result')
-      setResult({
-        success: false,
-        message: 'Koneksi server gagal saat mengirim data absensi.',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 6. Direct QR Submission
-  const handleFinalSubmitQR = async (qrToken: string) => {
-    if (hasSubmittedRef.current) return
-    hasSubmittedRef.current = true
-
-    setLoading(true)
-    setStatusText('Mengirim absensi QR...')
-
-    try {
-      const res = await fetch('/api/employee/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: qrToken,
-          face_image: '', // no face image for QR
-          is_face_only: false
         }),
       })
 
@@ -321,7 +276,8 @@ export default function EmployeeScanContent() {
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    handleFinalSubmitQR(token)
+    if (!token) return
+    startFaceVerification(token)
   }
 
   const handleReset = () => {
