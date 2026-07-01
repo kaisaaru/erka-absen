@@ -2,7 +2,8 @@
 
 import React, { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Edit2, Trash2, X, CheckCircle, RefreshCw } from 'lucide-react'
+import { Plus, Edit2, Trash2, X, RefreshCw } from 'lucide-react'
+import { useToast } from '@/components/Toast'
 
 interface Employee {
   id: number
@@ -21,6 +22,7 @@ interface EmployeesManagementProps {
 
 export default function EmployeesManagement({ initialEmployees }: EmployeesManagementProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees)
   const [search, setSearch] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -43,8 +45,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
   const [employeeId, setEmployeeId] = useState('')
 
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [isPending, startTransition] = useTransition()
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
 
@@ -71,7 +71,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
     setPhone('')
     setPosition('')
     setEmployeeId('')
-    setError('')
   }
 
   // Handle open create modal
@@ -100,14 +99,12 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
 
   // Trigger alert timeout
   const triggerSuccessAlert = (msg: string) => {
-    setSuccess(msg)
-    setTimeout(() => setSuccess(''), 4000)
+    toast.success(msg)
   }
 
   // Handle Create
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
     setLoading(true)
 
     try {
@@ -127,10 +124,10 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
           router.refresh()
         })
       } else {
-        setError(data.message || 'Terjadi kesalahan.')
+        toast.error(data.message || 'Terjadi kesalahan.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -140,7 +137,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedEmployee) return
-    setError('')
     setLoading(true)
 
     try {
@@ -170,10 +166,10 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
           router.refresh()
         })
       } else {
-        setError(data.message || 'Terjadi kesalahan.')
+        toast.error(data.message || 'Terjadi kesalahan.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -182,7 +178,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
   // Handle Delete
   const handleDelete = async () => {
     if (!selectedEmployee) return
-    setError('')
     setLoading(true)
 
     try {
@@ -200,10 +195,10 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
           router.refresh()
         })
       } else {
-        setError(data.message || 'Terjadi kesalahan.')
+        toast.error(data.message || 'Terjadi kesalahan.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -213,14 +208,12 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
   const openResetFaceModal = (emp: Employee) => {
     setSelectedEmployee(emp)
     setShowResetFaceModal(true)
-    setError('')
   }
 
   // Handle Reset Face
   const handleResetFace = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedEmployee) return
-    setError('')
     setLoading(true)
 
     try {
@@ -250,10 +243,10 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
           router.refresh()
         })
       } else {
-        setError(data.message || 'Terjadi kesalahan.')
+        toast.error(data.message || 'Terjadi kesalahan.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -267,13 +260,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
 
   return (
     <div className="space-y-6">
-      {/* Success Alert */}
-      {success && (
-        <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3">
-          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span className="text-sm font-semibold text-emerald-800">{success}</span>
-        </div>
-      )}
 
       {/* Header section (title + button side-by-side) */}
       <div className="flex items-center justify-between">
@@ -432,11 +418,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
             </button>
             <h3 className="text-lg font-bold text-gray-900 mb-6 border-b border-slate-50 pb-3">Tambah Karyawan</h3>
             
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-semibold">
-                {error}
-              </div>
-            )}
 
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
@@ -543,11 +524,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
             </button>
             <h3 className="text-lg font-bold text-gray-900 mb-6 border-b border-slate-50 pb-3">Edit Karyawan</h3>
             
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-semibold">
-                {error}
-              </div>
-            )}
 
             <form onSubmit={handleEdit} className="space-y-4">
               <div>
@@ -651,11 +627,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
               Apakah Anda yakin ingin me-reset registrasi wajah karyawan <strong className="text-slate-800">{selectedEmployee.name}</strong>? 
               Setelah di-reset, foto pendaftaran wajah akan dikosongkan dan karyawan tersebut **wajib mendaftarkan ulang wajah mereka** dari portal karyawan sebelum dapat melakukan absensi kembali.
             </p>
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-semibold">
-                {error}
-              </div>
-            )}
             <form onSubmit={handleResetFace} className="flex items-center justify-end gap-3">
               <button
                 type="button"
@@ -684,11 +655,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
             <p className="text-xs text-slate-500 mb-6 leading-relaxed">
               Apakah Anda yakin ingin menghapus akun karyawan <strong className="text-slate-800">{selectedEmployee.name}</strong>? Tindakan ini tidak dapat dibatalkan.
             </p>
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-semibold">
-                {error}
-              </div>
-            )}
             <div className="flex items-center justify-end gap-3">
               <button
                 type="button"

@@ -2,8 +2,9 @@
 
 import React, { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Edit2, Search, X, CheckCircle, ChevronDown, Calendar, Trash2 } from 'lucide-react'
+import { Edit2, Search, X, ChevronDown, Calendar, Trash2 } from 'lucide-react'
 import { formatReadableDate } from '@/lib/date-utils'
+import { useToast } from '@/components/Toast'
 
 interface AttendanceRecord {
   id: number
@@ -45,6 +46,7 @@ export default function AttendancesManagement({
   totalPages,
 }: AttendancesManagementProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [isPending, startTransition] = useTransition()
 
   // Filter form states
@@ -82,8 +84,6 @@ export default function AttendancesManagement({
   const [editNotes, setEditNotes] = useState('')
   
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   // Delete Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -100,6 +100,21 @@ export default function AttendancesManagement({
     const st = statusOptions.find(s => s.value === statusFilter)
     setSelectedStatusLabel(st ? st.label : 'Semua Status')
   }, [dateFilter, userIdFilter, statusFilter])
+
+  // Close custom dropdowns on click outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.employee-dropdown-container')) {
+        setEmployeeOpen(false)
+      }
+      if (!target.closest('.status-dropdown-container')) {
+        setStatusOpen(false)
+      }
+    }
+    document.addEventListener('click', handleOutsideClick)
+    return () => document.removeEventListener('click', handleOutsideClick)
+  }, [])
 
   // Filter employee options
   const filteredEmployeeOptions = [
@@ -119,6 +134,7 @@ export default function AttendancesManagement({
       if (dateVal) urlParams.set('date', dateVal)
       if (userIdVal) urlParams.set('user_id', userIdVal)
       if (statusVal) urlParams.set('status', statusVal)
+      urlParams.set('page', '1')
       router.push(`/admin/attendances?${urlParams.toString()}`)
     })
   }
@@ -147,8 +163,7 @@ export default function AttendancesManagement({
   }
 
   const triggerSuccessAlert = (msg: string) => {
-    setSuccess(msg)
-    setTimeout(() => setSuccess(''), 4000)
+    toast.success(msg)
   }
 
   // Open Edit Modal
@@ -158,7 +173,6 @@ export default function AttendancesManagement({
     const opt = statusOptions.find(s => s.value === rec.status)
     setEditStatusLabel(opt ? opt.label : 'Hadir')
     setEditNotes(rec.notes)
-    setError('')
     setShowEditModal(true)
   }
 
@@ -167,7 +181,6 @@ export default function AttendancesManagement({
     e.preventDefault()
     if (!selectedRecord) return
     setLoading(true)
-    setError('')
 
     try {
       const res = await fetch(`/api/admin/attendances/${selectedRecord.id}`, {
@@ -185,10 +198,10 @@ export default function AttendancesManagement({
           router.refresh()
         })
       } else {
-        setError(data.message || 'Terjadi kesalahan.')
+        toast.error(data.message || 'Terjadi kesalahan.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -198,14 +211,12 @@ export default function AttendancesManagement({
   const handleDeleteClick = (rec: AttendanceRecord) => {
     setDeleteRecord(rec)
     setShowDeleteModal(true)
-    setError('')
   }
 
   const handleDeleteSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!deleteRecord) return
     setLoading(true)
-    setError('')
 
     try {
       const res = await fetch(`/api/admin/attendances/${deleteRecord.id}`, {
@@ -222,10 +233,10 @@ export default function AttendancesManagement({
           router.refresh()
         })
       } else {
-        setError(data.message || 'Terjadi kesalahan.')
+        toast.error(data.message || 'Terjadi kesalahan.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -252,13 +263,6 @@ export default function AttendancesManagement({
 
   return (
     <div className="space-y-6">
-      {/* Success Alert */}
-      {success && (
-        <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3">
-          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span className="text-sm font-semibold text-emerald-800">{success}</span>
-        </div>
-      )}
 
       {/* Filter Form (fixed relative stacking overlay index) */}
       <form onSubmit={handleApplyFilter} className="flex flex-wrap gap-3 items-center relative z-20">
@@ -571,9 +575,6 @@ export default function AttendancesManagement({
                 />
               </div>
 
-              {error && (
-                <p className="text-xs text-red-500 font-semibold">{error}</p>
-              )}
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 mt-6">
                 <button
@@ -624,9 +625,6 @@ export default function AttendancesManagement({
                 </div>
               </div>
 
-              {error && (
-                <p className="text-xs text-red-500 font-semibold">{error}</p>
-              )}
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 mt-6">
                 <button

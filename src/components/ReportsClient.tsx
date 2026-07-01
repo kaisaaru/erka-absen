@@ -1,11 +1,13 @@
 'use client'
 
 import React, { useState } from 'react'
-import { FileSpreadsheet, FileText, Download, AlertCircle, CheckCircle } from 'lucide-react'
+import { FileSpreadsheet, FileText, Download } from 'lucide-react'
+import { useToast } from '@/components/Toast'
 
 interface EmployeeOption { id: number; name: string }
 
 export default function ReportsClient({ employees }: { employees: EmployeeOption[] }) {
+  const { toast } = useToast()
   // Use Jakarta (WIB, UTC+7) date as default to match how attendance_date is stored
   const jakartaNow = new Date(Date.now() + 7 * 60 * 60 * 1000)
   const today = jakartaNow.toISOString().split('T')[0]
@@ -15,8 +17,6 @@ export default function ReportsClient({ employees }: { employees: EmployeeOption
   const [endDate, setEndDate] = useState(today)
   const [userId, setUserId] = useState('')
   const [loading, setLoading] = useState<'excel' | 'pdf' | null>(null)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   const buildParams = () => {
     const p = new URLSearchParams()
@@ -28,15 +28,13 @@ export default function ReportsClient({ employees }: { employees: EmployeeOption
 
   const handleDownload = async (type: 'excel' | 'pdf') => {
     if (!startDate || !endDate) {
-      setError('Tanggal awal dan akhir harus diisi.')
+      toast.error('Tanggal awal dan akhir harus diisi.')
       return
     }
     if (startDate > endDate) {
-      setError('Tanggal awal tidak boleh lebih besar dari tanggal akhir.')
+      toast.error('Tanggal awal tidak boleh lebih besar dari tanggal akhir.')
       return
     }
-    setError('')
-    setSuccess('')
     setLoading(type)
 
     const endpoint = type === 'excel'
@@ -48,7 +46,7 @@ export default function ReportsClient({ employees }: { employees: EmployeeOption
 
       if (!res.ok) {
         const data = await res.json()
-        setError(data.message || 'Gagal mengunduh laporan.')
+        toast.error(data.message || 'Gagal mengunduh laporan.')
         return
       }
 
@@ -64,10 +62,9 @@ export default function ReportsClient({ employees }: { employees: EmployeeOption
       a.remove()
       window.URL.revokeObjectURL(url)
 
-      setSuccess(`Laporan ${type === 'excel' ? 'Excel' : 'PDF'} berhasil diunduh.`)
-      setTimeout(() => setSuccess(''), 5000)
+      toast.success(`Laporan ${type === 'excel' ? 'Excel' : 'PDF'} berhasil diunduh.`)
     } catch (err) {
-      setError('Terjadi kesalahan saat mengunduh laporan.')
+      toast.error('Terjadi kesalahan saat mengunduh laporan.')
     } finally {
       setLoading(null)
     }
@@ -75,18 +72,6 @@ export default function ReportsClient({ employees }: { employees: EmployeeOption
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {success && (
-        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
-          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span className="text-sm font-semibold text-emerald-700">{success}</span>
-        </div>
-      )}
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-          <span className="text-sm font-semibold text-red-700">{error}</span>
-        </div>
-      )}
 
       {/* Filter Card */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 sm:p-8">

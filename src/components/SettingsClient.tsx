@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Save, CheckCircle, AlertCircle, MapPin } from 'lucide-react'
+import { Save, MapPin } from 'lucide-react'
+import { useToast } from '@/components/Toast'
 
 interface SettingsClientProps {
   settings: Record<string, string>
@@ -10,6 +11,7 @@ interface SettingsClientProps {
 
 export default function SettingsClient({ settings }: SettingsClientProps) {
   const router = useRouter()
+  const { toast } = useToast()
 
   const [officeName, setOfficeName] = useState(settings.office_name || 'ERKA')
   const [checkInTime, setCheckInTime] = useState(settings.office_check_in_time || '08:00')
@@ -23,8 +25,6 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
 
   const [loading, setLoading] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   const handleResetDb = async () => {
     const confirmReset = window.confirm(
@@ -33,8 +33,6 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
     if (!confirmReset) return
 
     setResetLoading(true)
-    setError('')
-    setSuccess('')
 
     try {
       const res = await fetch('/api/admin/reset-db', {
@@ -44,14 +42,13 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
       const data = await res.json()
 
       if (res.ok && data.success) {
-        setSuccess('Database berhasil di-reset dan di-seed kembali ke data awal.')
+        toast.success('Database berhasil di-reset dan di-seed kembali ke data awal.')
         router.refresh()
-        setTimeout(() => setSuccess(''), 6000)
       } else {
-        setError(data.message || 'Gagal mereset database.')
+        toast.error(data.message || 'Gagal mereset database.')
       }
     } catch (err) {
-      setError('Koneksi server gagal saat mereset database.')
+      toast.error('Koneksi server gagal saat mereset database.')
     } finally {
       setResetLoading(false)
     }
@@ -59,21 +56,18 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
 
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
-      setError('Geolokasi tidak didukung oleh browser Anda.')
+      toast.error('Geolokasi tidak didukung oleh browser Anda.')
       return
     }
 
     setDetectingLocation(true)
-    setError('')
-    setSuccess('')
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLatitude(position.coords.latitude.toFixed(6))
         setLongitude(position.coords.longitude.toFixed(6))
-        setSuccess('Lokasi GPS berhasil dideteksi!')
+        toast.success('Lokasi GPS berhasil dideteksi!')
         setDetectingLocation(false)
-        setTimeout(() => setSuccess(''), 4000)
       },
       (err) => {
         console.error('Error getting location:', err)
@@ -85,7 +79,7 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
         } else if (err.code === err.TIMEOUT) {
           errorMsg = 'Waktu permintaan lokasi habis.'
         }
-        setError(errorMsg)
+        toast.error(errorMsg)
         setDetectingLocation(false)
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -94,8 +88,6 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
-    setSuccess('')
     setLoading(true)
 
     try {
@@ -117,14 +109,13 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
       const data = await res.json()
 
       if (res.ok && data.success) {
-        setSuccess('Pengaturan berhasil disimpan.')
+        toast.success('Pengaturan berhasil disimpan.')
         router.refresh()
-        setTimeout(() => setSuccess(''), 4000)
       } else {
-        setError(data.message || 'Gagal menyimpan pengaturan.')
+        toast.error(data.message || 'Gagal menyimpan pengaturan.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -132,18 +123,6 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
 
   return (
     <div className="max-w-2xl space-y-6">
-      {success && (
-        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
-          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span className="text-sm font-semibold text-emerald-700">{success}</span>
-        </div>
-      )}
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-          <span className="text-sm font-semibold text-red-700">{error}</span>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 sm:p-8 space-y-6">
         <div>
