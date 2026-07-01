@@ -106,9 +106,8 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
       {/* Timer Progress Bar */}
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-100/50 dark:bg-slate-800/30 overflow-hidden">
         <div
-          className="h-full"
+          className="h-full w-full"
           style={{
-            width: '100%',
             animation: `toast-progress ${toast.duration || 4000}ms linear forwards`,
             backgroundColor: toast.type === 'success' ? '#10b981' : toast.type === 'error' ? '#ef4444' : '#3b82f6'
           }}
