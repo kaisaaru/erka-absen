@@ -8,6 +8,18 @@ import * as faceapi from 'face-api.js'
 
 type ScanStep = 'select_method' | 'scan_qr' | 'verify_face' | 'result'
 
+function getHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000 // Radius of the earth in m
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c // Distance in meters
+}
+
 export default function EmployeeScanContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -39,6 +51,8 @@ export default function EmployeeScanContent() {
   const [faceProgress, setFaceProgress] = useState(0)
   const [faceError, setFaceError] = useState('')
   const hasSubmittedRef = useRef(false)
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null)
+  const coordsRef = useRef<{ latitude: number; longitude: number } | null>(null)
 
   // 1. Auto-init if token is present in URL
   useEffect(() => {
@@ -75,8 +89,7 @@ export default function EmployeeScanContent() {
             
             scanner.stop().then(() => {
               setCameraActive(false)
-              setToken(finalToken)
-              handleFinalSubmitQR(finalToken)
+              startFaceVerification(finalToken)
             }).catch(err => console.error('Error stopping QR camera:', err))
           },
           () => {}
@@ -102,6 +115,39 @@ export default function EmployeeScanContent() {
     setToken(targetToken)
     setStep('verify_face')
     setLoading(true)
+    setFaceError('')
+
+    // If already cached, bypass geolocation request
+    if (coordsRef.current && registeredDescriptor) {
+      try {
+        // Load faceapi models if not loaded
+        if (!faceModelsLoaded) {
+          setStatusText('Memuat kecerdasan buatan wajah...')
+          await faceapi.nets.tinyFaceDetector.loadFromUri('/models')
+          await faceapi.nets.faceLandmark68Net.loadFromUri('/models')
+          await faceapi.nets.faceRecognitionNet.loadFromUri('/models')
+          setFaceModelsLoaded(true)
+        }
+
+        setStatusText('Membuka kamera depan...')
+        // Start Front Camera
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: 480, height: 480 }
+        })
+        faceStreamRef.current = stream
+        if (faceVideoRef.current) {
+          faceVideoRef.current.srcObject = stream
+        }
+        setLoading(false)
+        setStatusText('Posisikan wajah Anda di tengah lingkaran')
+      } catch (err) {
+        console.error('Error starting face verification from cache:', err)
+        setFaceError('Gagal mengakses kamera depan atau memuat model wajah.')
+        setLoading(false)
+      }
+      return
+    }
+
     setStatusText('Memverifikasi data wajah terdaftar...')
 
     try {
@@ -117,29 +163,113 @@ export default function EmployeeScanContent() {
 
       setRegisteredDescriptor(JSON.parse(data.descriptor))
 
-      // Load faceapi models if not loaded
-      if (!faceModelsLoaded) {
-        setStatusText('Memuat kecerdasan buatan wajah...')
-        await faceapi.nets.tinyFaceDetector.loadFromUri('/models')
-        await faceapi.nets.faceLandmark68Net.loadFromUri('/models')
-        await faceapi.nets.faceRecognitionNet.loadFromUri('/models')
-        setFaceModelsLoaded(true)
+      // If location verification is disabled, go straight to camera loader
+      if (data.office_location_active === false) {
+        try {
+          if (!faceModelsLoaded) {
+            setStatusText('Memuat kecerdasan buatan wajah...')
+            await faceapi.nets.tinyFaceDetector.loadFromUri('/models')
+            await faceapi.nets.faceLandmark68Net.loadFromUri('/models')
+            await faceapi.nets.faceRecognitionNet.loadFromUri('/models')
+            setFaceModelsLoaded(true)
+          }
+
+          setStatusText('Membuka kamera depan...')
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: 480, height: 480 }
+          })
+          faceStreamRef.current = stream
+          if (faceVideoRef.current) {
+            faceVideoRef.current.srcObject = stream
+          }
+          setLoading(false)
+          setStatusText('Posisikan wajah Anda di tengah lingkaran')
+        } catch (err) {
+          console.error('Error starting camera after bypass:', err)
+          setFaceError('Gagal mengakses kamera depan atau memuat model wajah.')
+          setLoading(false)
+        }
+        return
       }
 
-      setStatusText('Membuka kamera depan...')
-      // Start Front Camera
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: 480, height: 480 }
-      })
-      faceStreamRef.current = stream
-      if (faceVideoRef.current) {
-        faceVideoRef.current.srcObject = stream
+      // Otherwise, request GPS and check location
+      setStatusText('Mengakses GPS & Lokasi Anda...')
+
+      if (!navigator.geolocation) {
+        setFaceError('Perangkat Anda tidak mendukung pelacakan lokasi (GPS).')
+        setLoading(false)
+        return
       }
-      setLoading(false)
-      setStatusText('Posisikan wajah Anda di tengah lingkaran')
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude
+          const lng = position.coords.longitude
+          setCoords({ latitude: lat, longitude: lng })
+          coordsRef.current = { latitude: lat, longitude: lng }
+
+          // Pre-check location on client-side first
+          if (data.office_latitude && data.office_longitude) {
+            const officeLat = parseFloat(data.office_latitude)
+            const officeLng = parseFloat(data.office_longitude)
+            const maxDistance = parseFloat(data.office_max_distance_meters || '50')
+            
+            const distance = getHaversineDistance(lat, lng, officeLat, officeLng)
+            if (distance > maxDistance) {
+              setStep('result')
+              setResult({
+                success: false,
+                message: `Absen gagal: Anda berada di luar area kantor. Jarak Anda: ${Math.round(distance)} meter (Maksimal radius: ${maxDistance} meter).`
+              })
+              setLoading(false)
+              return
+            }
+          }
+
+          // Open Front Camera & load models
+          try {
+            if (!faceModelsLoaded) {
+              setStatusText('Memuat kecerdasan buatan wajah...')
+              await faceapi.nets.tinyFaceDetector.loadFromUri('/models')
+              await faceapi.nets.faceLandmark68Net.loadFromUri('/models')
+              await faceapi.nets.faceRecognitionNet.loadFromUri('/models')
+              setFaceModelsLoaded(true)
+            }
+
+            setStatusText('Membuka kamera depan...')
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: 'user', width: 480, height: 480 }
+            })
+            faceStreamRef.current = stream
+            if (faceVideoRef.current) {
+              faceVideoRef.current.srcObject = stream
+            }
+            setLoading(false)
+            setStatusText('Posisikan wajah Anda di tengah lingkaran')
+          } catch (err) {
+            console.error('Error starting front camera:', err)
+            setFaceError('Gagal mengakses kamera depan atau memuat model wajah.')
+            setLoading(false)
+          }
+        },
+        (err) => {
+          console.error('Error getting location:', err)
+          let errorMsg = 'Gagal mendeteksi lokasi GPS Anda.'
+          if (err.code === err.PERMISSION_DENIED) {
+            errorMsg = 'Akses lokasi (GPS) ditolak. Anda wajib mengizinkan akses lokasi untuk melakukan absensi.'
+          } else if (err.code === err.POSITION_UNAVAILABLE) {
+            errorMsg = 'Informasi lokasi GPS tidak tersedia pada perangkat Anda.'
+          } else if (err.code === err.TIMEOUT) {
+            errorMsg = 'Waktu permintaan lokasi GPS habis. Silakan coba lagi.'
+          }
+          setFaceError(errorMsg)
+          setLoading(false)
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      )
     } catch (err) {
-      console.error('Error starting face verification:', err)
-      setFaceError('Gagal mengakses kamera depan atau memuat model wajah.')
+      console.error('Error in face verification location checks:', err)
+      setFaceError('Koneksi server gagal saat memverifikasi lokasi.')
       setLoading(false)
     }
   }
@@ -169,8 +299,8 @@ export default function EmployeeScanContent() {
               new Float32Array(registeredDescriptor)
             )
 
-            // Threshold <= 0.6 is match
-            if (distance <= 0.6) {
+            // Threshold <= 0.5 is match (stricter than 0.6 to prevent false matches)
+            if (distance <= 0.5) {
               setFaceProgress((prev) => {
                 const next = prev + 25
                 if (next >= 100) {
@@ -244,52 +374,10 @@ export default function EmployeeScanContent() {
         body: JSON.stringify({
           token: token || undefined,
           face_image: faceImageBase64,
-          is_face_only: !token // if token is empty, it is face scan only
-        }),
-      })
-
-      const data = await res.json()
-      setStep('result')
-      setResult({
-        success: data.success,
-        message: data.message,
-        type: data.type,
-        isLate: data.isLate,
-      })
-
-      if (data.success) {
-        setTimeout(() => {
-          router.push('/employee/dashboard')
-          router.refresh()
-        }, 3000)
-      }
-    } catch (err) {
-      setStep('result')
-      setResult({
-        success: false,
-        message: 'Koneksi server gagal saat mengirim data absensi.',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 6. Direct QR Submission
-  const handleFinalSubmitQR = async (qrToken: string) => {
-    if (hasSubmittedRef.current) return
-    hasSubmittedRef.current = true
-
-    setLoading(true)
-    setStatusText('Mengirim absensi QR...')
-
-    try {
-      const res = await fetch('/api/employee/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: qrToken,
-          face_image: '', // no face image for QR
-          is_face_only: false
+          face_descriptor: Array.from(descriptor), // send array of floats
+          is_face_only: !token, // if token is empty, it is face scan only
+          latitude: coordsRef.current?.latitude,
+          longitude: coordsRef.current?.longitude,
         }),
       })
 
@@ -321,7 +409,8 @@ export default function EmployeeScanContent() {
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    handleFinalSubmitQR(token)
+    if (!token) return
+    startFaceVerification(token)
   }
 
   const handleReset = () => {
@@ -334,17 +423,111 @@ export default function EmployeeScanContent() {
     setFaceProgress(0)
     setManualInput(false)
     setCameraActive(false)
+    setCoords(null)
+    coordsRef.current = null
     setStep(urlToken ? 'verify_face' : 'select_method')
   }
 
+  const checkLocationAndProceed = async (onSuccess: () => void) => {
+    setStep('verify_face')
+    setLoading(true)
+    setFaceError('')
+    setStatusText('Memverifikasi status lokasi...')
+
+    try {
+      // 1. Fetch office settings and user registration status first
+      const res = await fetch('/api/employee/registered-descriptor')
+      const data = await res.json()
+
+      if (!res.ok) {
+        setFaceError(data.message || 'Gagal memverifikasi data wajah.')
+        setLoading(false)
+        return
+      }
+
+      // Cache the registered descriptor
+      if (data.enrolled) {
+        setRegisteredDescriptor(JSON.parse(data.descriptor))
+      }
+
+      // 2. If location verification is disabled, proceed immediately without asking for GPS
+      if (data.office_location_active === false) {
+        setLoading(false)
+        onSuccess()
+        return
+      }
+
+      // 3. Otherwise, check location (GPS)
+      setStatusText('Mengakses GPS & Lokasi Anda...')
+
+      if (!navigator.geolocation) {
+        setFaceError('Perangkat Anda tidak mendukung pelacakan lokasi (GPS).')
+        setLoading(false)
+        return
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude
+          const lng = position.coords.longitude
+          setCoords({ latitude: lat, longitude: lng })
+          coordsRef.current = { latitude: lat, longitude: lng }
+
+          // Check distance
+          if (data.office_latitude && data.office_longitude) {
+            const officeLat = parseFloat(data.office_latitude)
+            const officeLng = parseFloat(data.office_longitude)
+            const maxDistance = parseFloat(data.office_max_distance_meters || '50')
+            
+            const distance = getHaversineDistance(lat, lng, officeLat, officeLng)
+            if (distance > maxDistance) {
+              setStep('result')
+              setResult({
+                success: false,
+                message: `Absen gagal: Anda berada di luar area kantor. Jarak Anda: ${Math.round(distance)} meter (Maksimal radius: ${maxDistance} meter).`
+              })
+              setLoading(false)
+              return
+            }
+          }
+
+          setLoading(false)
+          onSuccess()
+        },
+        (err) => {
+          console.error('Error getting location:', err)
+          let errorMsg = 'Gagal mendeteksi lokasi GPS Anda.'
+          if (err.code === err.PERMISSION_DENIED) {
+            errorMsg = 'Akses lokasi (GPS) ditolak. Anda wajib mengizinkan akses lokasi untuk melakukan absensi.'
+          } else if (err.code === err.POSITION_UNAVAILABLE) {
+            errorMsg = 'Informasi lokasi GPS tidak tersedia pada perangkat Anda.'
+          } else if (err.code === err.TIMEOUT) {
+            errorMsg = 'Waktu permintaan lokasi GPS habis. Silakan coba lagi.'
+          }
+          setFaceError(errorMsg)
+          setLoading(false)
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      )
+    } catch (err) {
+      console.error('Error in location pre-check flow:', err)
+      setFaceError('Koneksi server gagal saat memverifikasi lokasi.')
+      setLoading(false)
+    }
+  }
+
   const handleSelectQR = () => {
-    setStep('scan_qr')
-    setCameraActive(true)
-    setManualInput(false)
+    checkLocationAndProceed(() => {
+      setStep('scan_qr')
+      setCameraActive(true)
+      setManualInput(false)
+    })
   }
 
   const handleSelectFace = () => {
-    startFaceVerification('')
+    checkLocationAndProceed(() => {
+      startFaceVerification('')
+    })
   }
 
   return (
@@ -477,6 +660,13 @@ export default function EmployeeScanContent() {
                   style={{ width: `${faceProgress}%` }}
                 />
               </div>
+            )}
+            
+            {!loading && !faceError && coords && (
+              <p className="text-[10px] text-emerald-600 font-bold flex items-center justify-center gap-1 mt-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                Lokasi terdeteksi ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})
+              </p>
             )}
           </div>
 

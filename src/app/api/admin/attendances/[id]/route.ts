@@ -68,3 +68,45 @@ export async function PUT(
     )
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const attendanceId = Number(id)
+
+    const attendance = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      include: { user: true },
+    })
+
+    if (!attendance) {
+      return NextResponse.json(
+        { success: false, message: 'Data absensi tidak ditemukan.' },
+        { status: 404 }
+      )
+    }
+
+    await prisma.attendance.delete({
+      where: { id: attendanceId }
+    })
+
+    const employeeName = attendance.user?.name || '-'
+    const dateFormatted = formatReadableDate(attendance.attendance_date)
+    
+    await recordLog('Hapus Absensi', `Berhasil menghapus data absensi karyawan: ${employeeName} pada tanggal ${dateFormatted}.`)
+
+    return NextResponse.json({
+      success: true,
+      message: 'Data absensi berhasil dihapus.',
+    })
+  } catch (error: any) {
+    console.error('Error deleting attendance:', error)
+    return NextResponse.json(
+      { success: false, message: 'Terjadi kesalahan internal server.' },
+      { status: 500 }
+    )
+  }
+}

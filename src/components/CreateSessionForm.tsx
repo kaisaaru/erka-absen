@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { LogIn, LogOut, AlertCircle } from 'lucide-react'
+import { LogIn, LogOut } from 'lucide-react'
+import { useToast } from '@/components/Toast'
 
 interface CreateSessionFormProps {
   checkoutLimitTime: string
@@ -10,14 +11,13 @@ interface CreateSessionFormProps {
 
 export default function CreateSessionForm({ checkoutLimitTime }: CreateSessionFormProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [type, setType] = useState('check_in')
   const [duration, setDuration] = useState('5')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
     setLoading(true)
 
     try {
@@ -33,10 +33,10 @@ export default function CreateSessionForm({ checkoutLimitTime }: CreateSessionFo
         router.push(`/admin/sessions/qr?id=${data.session.id}`)
         router.refresh()
       } else {
-        setError(data.message || 'Gagal membuat sesi absensi.')
+        toast.error(data.message || 'Gagal membuat sesi absensi.')
       }
     } catch (err) {
-      setError('Terjadi kesalahan koneksi server.')
+      toast.error('Terjadi kesalahan koneksi server.')
     } finally {
       setLoading(false)
     }
@@ -44,12 +44,6 @@ export default function CreateSessionForm({ checkoutLimitTime }: CreateSessionFo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2.5">
-          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-          <span className="text-xs text-red-750 font-semibold leading-relaxed">{error}</span>
-        </div>
-      )}
 
       {/* Tipe Sesi */}
       <div>

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import { QrCode, RefreshCw, XCircle, Users, CheckCircle, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { useToast } from '@/components/Toast'
 
 interface Session {
   id: number
@@ -26,12 +27,12 @@ interface QRDisplayContainerProps {
 }
 
 export default function QRDisplayContainer({ initialSession }: QRDisplayContainerProps) {
+  const { toast } = useToast()
   const [session, setSession] = useState<Session>(initialSession)
   const [attendees, setAttendees] = useState<Attendee[]>([])
   const [count, setCount] = useState(0)
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
 
   // Generate QR code data URL when token changes
   useEffect(() => {
@@ -52,20 +53,19 @@ export default function QRDisplayContainer({ initialSession }: QRDisplayContaine
         const res = await fetch(`/api/admin/sessions/${session.id}/attendees`)
         const data = await res.json()
         if (res.ok && data.success) {
-          setCount(data.count)
           setAttendees(data.attendees)
-          setSession(data.session)
+          setCount(data.count)
+          if (data.sessionStatus !== session.status) {
+            setSession(prev => ({ ...prev, status: data.sessionStatus }))
+          }
         }
       } catch (err) {
-        console.error('Error polling attendees:', err)
+        console.error('Error fetching attendees:', err)
       }
     }
 
-    // Call initially
-    fetchAttendees()
-
-    // Start interval if active
     if (session.status === 'active') {
+      fetchAttendees()
       intervalId = setInterval(fetchAttendees, 3000)
     }
 
@@ -77,17 +77,17 @@ export default function QRDisplayContainer({ initialSession }: QRDisplayContaine
   // Regenerate QR Code
   const handleRegenerate = async () => {
     setLoading(true)
-    setError('')
     try {
       const res = await fetch(`/api/admin/sessions/${session.id}/regenerate`, { method: 'POST' })
       const data = await res.json()
       if (res.ok && data.success) {
         setSession(data.session)
+        toast.success('QR Code berhasil di-regenerate.')
       } else {
-        setError(data.message || 'Gagal me-regenerate QR Code.')
+        toast.error(data.message || 'Gagal me-regenerate QR Code.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -96,17 +96,17 @@ export default function QRDisplayContainer({ initialSession }: QRDisplayContaine
   // Close Session
   const handleClose = async () => {
     setLoading(true)
-    setError('')
     try {
       const res = await fetch(`/api/admin/sessions/${session.id}/close`, { method: 'POST' })
       const data = await res.json()
       if (res.ok && data.success) {
         setSession(data.session)
+        toast.success('Sesi absensi berhasil ditutup.')
       } else {
-        setError(data.message || 'Gagal menutup sesi.')
+        toast.error(data.message || 'Gagal menutup sesi.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -173,10 +173,6 @@ export default function QRDisplayContainer({ initialSession }: QRDisplayContaine
 
           {/* Controls */}
           <div className="w-full space-y-3">
-            {error && (
-              <p className="text-xs text-red-500 font-semibold">{error}</p>
-            )}
-
             <div className="flex gap-3">
               {(isActive || isExpired) && (
                 <button

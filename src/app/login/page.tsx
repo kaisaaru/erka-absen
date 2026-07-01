@@ -2,19 +2,19 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/Toast'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(false)
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
     setLoading(true)
 
     try {
@@ -34,11 +34,11 @@ export default function LoginPage() {
         }
         router.refresh()
       } else {
-        setError(data.message || 'Email atau password salah.')
+        toast.error(data.message || 'Email atau password salah.')
       }
     } catch (err) {
       console.error(err)
-      setError('Terjadi kesalahan koneksi server.')
+      toast.error('Terjadi kesalahan koneksi server.')
     } finally {
       setLoading(false)
     }
@@ -61,15 +61,6 @@ export default function LoginPage() {
         {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/60 border border-gray-100 p-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-6">Masuk ke Akun Anda</h2>
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2">
-              <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span className="text-xs text-red-600 font-medium">{error}</span>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>

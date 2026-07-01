@@ -2,7 +2,8 @@
 
 import React, { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Edit2, Trash2, X, CheckCircle } from 'lucide-react'
+import { Plus, Edit2, Trash2, X, RefreshCw } from 'lucide-react'
+import { useToast } from '@/components/Toast'
 
 interface Employee {
   id: number
@@ -21,6 +22,7 @@ interface EmployeesManagementProps {
 
 export default function EmployeesManagement({ initialEmployees }: EmployeesManagementProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees)
   const [search, setSearch] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -31,6 +33,7 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showResetFaceModal, setShowResetFaceModal] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
 
   // Form states
@@ -42,8 +45,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
   const [employeeId, setEmployeeId] = useState('')
 
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [isPending, startTransition] = useTransition()
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
 
@@ -70,7 +71,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
     setPhone('')
     setPosition('')
     setEmployeeId('')
-    setError('')
   }
 
   // Handle open create modal
@@ -99,14 +99,12 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
 
   // Trigger alert timeout
   const triggerSuccessAlert = (msg: string) => {
-    setSuccess(msg)
-    setTimeout(() => setSuccess(''), 4000)
+    toast.success(msg)
   }
 
   // Handle Create
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
     setLoading(true)
 
     try {
@@ -126,10 +124,10 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
           router.refresh()
         })
       } else {
-        setError(data.message || 'Terjadi kesalahan.')
+        toast.error(data.message || 'Terjadi kesalahan.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -139,7 +137,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedEmployee) return
-    setError('')
     setLoading(true)
 
     try {
@@ -152,17 +149,27 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
       const data = await res.json()
 
       if (res.ok && data.success) {
-        setEmployees(employees.map(emp => emp.id === selectedEmployee.id ? data.employee : emp))
+        const updatedEmployee = {
+          id: data.employee.id,
+          name: data.employee.name,
+          email: data.employee.email,
+          phone: data.employee.phone || '',
+          position: data.employee.position || '',
+          employee_id: data.employee.employee_id || '',
+          avatar: data.employee.avatar || '',
+          faceImageRegistered: data.employee.face_image_registered || '',
+        }
+        setEmployees(employees.map(emp => emp.id === selectedEmployee.id ? updatedEmployee : emp))
         setShowEditModal(false)
         triggerSuccessAlert('Data karyawan berhasil diperbarui.')
         startTransition(() => {
           router.refresh()
         })
       } else {
-        setError(data.message || 'Terjadi kesalahan.')
+        toast.error(data.message || 'Terjadi kesalahan.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -171,7 +178,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
   // Handle Delete
   const handleDelete = async () => {
     if (!selectedEmployee) return
-    setError('')
     setLoading(true)
 
     try {
@@ -189,10 +195,58 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
           router.refresh()
         })
       } else {
-        setError(data.message || 'Terjadi kesalahan.')
+        toast.error(data.message || 'Terjadi kesalahan.')
       }
     } catch (err) {
-      setError('Koneksi server gagal.')
+      toast.error('Koneksi server gagal.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Open Reset Face confirmation
+  const openResetFaceModal = (emp: Employee) => {
+    setSelectedEmployee(emp)
+    setShowResetFaceModal(true)
+  }
+
+  // Handle Reset Face
+  const handleResetFace = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedEmployee) return
+    setLoading(true)
+
+    try {
+      const res = await fetch(`/api/admin/employees/${selectedEmployee.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset_face: true }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        const updatedEmployee = {
+          id: data.employee.id,
+          name: data.employee.name,
+          email: data.employee.email,
+          phone: data.employee.phone || '',
+          position: data.employee.position || '',
+          employee_id: data.employee.employee_id || '',
+          avatar: data.employee.avatar || '',
+          faceImageRegistered: data.employee.face_image_registered || '',
+        }
+        setEmployees(employees.map(emp => emp.id === selectedEmployee.id ? updatedEmployee : emp))
+        setShowResetFaceModal(false)
+        triggerSuccessAlert('Registrasi wajah karyawan berhasil di-reset.')
+        startTransition(() => {
+          router.refresh()
+        })
+      } else {
+        toast.error(data.message || 'Terjadi kesalahan.')
+      }
+    } catch (err) {
+      toast.error('Koneksi server gagal.')
     } finally {
       setLoading(false)
     }
@@ -206,13 +260,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
 
   return (
     <div className="space-y-6">
-      {/* Success Alert */}
-      {success && (
-        <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3">
-          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span className="text-sm font-semibold text-emerald-800">{success}</span>
-        </div>
-      )}
 
       {/* Header section (title + button side-by-side) */}
       <div className="flex items-center justify-between">
@@ -301,16 +348,25 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
                     </td>
                     <td className="px-6 py-3.5 text-right">
                       <div className="flex justify-end gap-3">
+                        {emp.faceImageRegistered && (
+                          <button
+                            onClick={() => openResetFaceModal(emp)}
+                            className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                            title="Reset Registrasi Wajah"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => openEditModal(emp)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => openDeleteModal(emp)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Hapus"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -362,11 +418,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
             </button>
             <h3 className="text-lg font-bold text-gray-900 mb-6 border-b border-slate-50 pb-3">Tambah Karyawan</h3>
             
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-semibold">
-                {error}
-              </div>
-            )}
 
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
@@ -473,11 +524,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
             </button>
             <h3 className="text-lg font-bold text-gray-900 mb-6 border-b border-slate-50 pb-3">Edit Karyawan</h3>
             
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-semibold">
-                {error}
-              </div>
-            )}
 
             <form onSubmit={handleEdit} className="space-y-4">
               <div>
@@ -566,6 +612,41 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
         </div>
       )}
 
+      {/* RESET FACE CONFIRMATION MODAL */}
+      {showResetFaceModal && selectedEmployee && (
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-2xl border border-slate-100 shadow-2xl p-6 sm:p-8 relative">
+            <button 
+              onClick={() => setShowResetFaceModal(false)}
+              className="absolute right-6 top-6 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-lg font-bold text-gray-900 mb-3 border-b border-slate-50 pb-2">Reset Registrasi Wajah</h3>
+            <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+              Apakah Anda yakin ingin me-reset registrasi wajah karyawan <strong className="text-slate-800">{selectedEmployee.name}</strong>? 
+              Setelah di-reset, foto pendaftaran wajah akan dikosongkan dan karyawan tersebut **wajib mendaftarkan ulang wajah mereka** dari portal karyawan sebelum dapat melakukan absensi kembali.
+            </p>
+            <form onSubmit={handleResetFace} className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowResetFaceModal(false)}
+                className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Me-reset...' : 'Ya, Reset Wajah'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* DELETE CONFIRMATION MODAL */}
       {showDeleteModal && selectedEmployee && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
@@ -574,11 +655,6 @@ export default function EmployeesManagement({ initialEmployees }: EmployeesManag
             <p className="text-xs text-slate-500 mb-6 leading-relaxed">
               Apakah Anda yakin ingin menghapus akun karyawan <strong className="text-slate-800">{selectedEmployee.name}</strong>? Tindakan ini tidak dapat dibatalkan.
             </p>
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-semibold">
-                {error}
-              </div>
-            )}
             <div className="flex items-center justify-end gap-3">
               <button
                 type="button"

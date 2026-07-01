@@ -2,7 +2,7 @@ import React from 'react'
 import { cookies } from 'next/headers'
 import { verifyToken } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { getJakartaDateString, checkIsLate, formatReadableDate } from '@/lib/date-utils'
+import { getJakartaDateString, checkIsLate, formatReadableDate, getJakartaTimeString, timeToMinutes } from '@/lib/date-utils'
 import { CalendarCheck, Clock, QrCode, AlertTriangle, UserCheck } from 'lucide-react'
 import Link from 'next/link'
 
@@ -78,6 +78,17 @@ export default async function EmployeeDashboardPage() {
     alpha: 'Alpha',
   }
 
+  let isEarlyCheckOut = false
+  if (todayAttendance && !todayAttendance.check_out_time) {
+    const currentTimeStr = getJakartaTimeString()
+    const currentShortTime = currentTimeStr.substring(0, 5)
+    const currentMinutes = timeToMinutes(currentShortTime)
+    const officeCheckOutMinutes = timeToMinutes(officeCheckOutStr)
+    if (currentMinutes < officeCheckOutMinutes) {
+      isEarlyCheckOut = true
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Welcome header */}
@@ -87,15 +98,22 @@ export default async function EmployeeDashboardPage() {
           <p className="text-xs text-slate-500 mt-1 font-medium">Hari ini: {formatReadableDate(today)}</p>
         </div>
         
-        {/* QR Link - Blocked if needs face enrollment or already checked out */}
+        {/* QR Link - Blocked if needs face enrollment or already checked out or is early check-out */}
         {activeSessions.length > 0 && !todayAttendance?.check_out_time ? (
-          <Link
-            href={needsFaceEnrollment ? "/employee/register-face" : "/employee/scan"}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all animate-pulse"
-          >
-            <QrCode className="w-4 h-4" />
-            {todayAttendance?.check_in_time ? 'Absen Pulang — Scan Sekarang' : 'Absen Masuk — Scan Sekarang'}
-          </Link>
+          isEarlyCheckOut ? (
+            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-250">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+              Belum Jam Pulang (Pukul {officeCheckOutStr})
+            </div>
+          ) : (
+            <Link
+              href={needsFaceEnrollment ? "/employee/register-face" : "/employee/scan"}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all animate-pulse"
+            >
+              <QrCode className="w-4 h-4" />
+              {todayAttendance?.check_in_time ? 'Absen Pulang — Scan Sekarang' : 'Absen Masuk — Scan Sekarang'}
+            </Link>
+          )
         ) : todayAttendance?.check_out_time ? (
           <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-500 text-xs font-semibold border border-slate-200">
             <CalendarCheck className="w-4 h-4" />
