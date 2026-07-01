@@ -24,10 +24,20 @@ export async function GET(request: Request) {
       )
     }
 
+    // Fetch office location settings
+    const officeLatSet = await prisma.setting.findUnique({ where: { key: 'office_latitude' } })
+    const officeLngSet = await prisma.setting.findUnique({ where: { key: 'office_longitude' } })
+    const officeMaxDistSet = await prisma.setting.findUnique({ where: { key: 'office_max_distance_meters' } })
+    const officeLocationActiveSet = await prisma.setting.findUnique({ where: { key: 'office_location_active' } })
+
     return NextResponse.json({
       success: true,
       enrolled: true,
-      descriptor: user.face_descriptor
+      descriptor: user.face_descriptor,
+      office_latitude: officeLatSet?.value || null,
+      office_longitude: officeLngSet?.value || null,
+      office_max_distance_meters: officeMaxDistSet?.value || null,
+      office_location_active: officeLocationActiveSet?.value === 'false' ? false : true,
     })
   } catch (error: any) {
     console.error('Error fetching face descriptor:', error)

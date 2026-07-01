@@ -13,6 +13,18 @@ function getEuclideanDistance(arr1: number[], arr2: number[]): number {
   return Math.sqrt(sum)
 }
 
+function getHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000 // Radius of the earth in m
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c // Distance in meters
+}
+
 export async function POST(request: Request) {
   try {
     const userPayload = getUserFromRequest(request)
@@ -23,7 +35,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { token, face_image, face_descriptor, is_face_only } = await request.json()
+    const { token, face_image, face_descriptor, is_face_only, latitude, longitude } = await request.json()
 
     if (!token && !is_face_only) {
       return NextResponse.json(
@@ -41,10 +53,50 @@ export async function POST(request: Request) {
     const checkInTimeSet = await prisma.setting.findUnique({ where: { key: 'office_check_in_time' } })
     const checkOutTimeSet = await prisma.setting.findUnique({ where: { key: 'office_check_out_time' } })
     const toleranceSet = await prisma.setting.findUnique({ where: { key: 'office_late_tolerance_minutes' } })
+    const officeLatSet = await prisma.setting.findUnique({ where: { key: 'office_latitude' } })
+    const officeLngSet = await prisma.setting.findUnique({ where: { key: 'office_longitude' } })
+    const officeMaxDistSet = await prisma.setting.findUnique({ where: { key: 'office_max_distance_meters' } })
+    const officeLocationActiveSet = await prisma.setting.findUnique({ where: { key: 'office_location_active' } })
 
     const officeCheckInStr = checkInTimeSet?.value || '08:00'
     const officeCheckOutStr = checkOutTimeSet?.value || '17:00'
     const toleranceMinutes = Number(toleranceSet?.value || '15')
+
+    // Validate Geolocation if configured and active
+    const isLocationActive = officeLocationActiveSet?.value !== 'false'
+    if (isLocationActive && officeLatSet?.value && officeLngSet?.value) {
+      const officeLat = parseFloat(officeLatSet.value)
+      const officeLng = parseFloat(officeLngSet.value)
+      const maxDistance = parseFloat(officeMaxDistSet?.value || '50')
+
+      if (latitude === undefined || longitude === undefined) {
+        return NextResponse.json(
+          { success: false, message: 'Akses lokasi (GPS) diperlukan untuk melakukan absensi.' },
+          { status: 400 }
+        )
+      }
+
+      const userLat = Number(latitude)
+      const userLng = Number(longitude)
+
+      if (isNaN(userLat) || isNaN(userLng)) {
+        return NextResponse.json(
+          { success: false, message: 'Koordinat lokasi (GPS) tidak valid.' },
+          { status: 400 }
+        )
+      }
+
+      const distance = getHaversineDistance(userLat, userLng, officeLat, officeLng)
+      if (distance > maxDistance) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            message: `Absen gagal: Anda berada di luar area kantor. Jarak Anda: ${Math.round(distance)} meter (Maksimal radius: ${maxDistance} meter).` 
+          },
+          { status: 400 }
+        )
+      }
+    }
 
     const userId = userPayload.userId
 

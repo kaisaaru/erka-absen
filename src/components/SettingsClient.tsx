@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Save, CheckCircle, AlertCircle } from 'lucide-react'
+import { Save, CheckCircle, AlertCircle, MapPin } from 'lucide-react'
 
 interface SettingsClientProps {
   settings: Record<string, string>
@@ -15,6 +15,11 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
   const [checkInTime, setCheckInTime] = useState(settings.office_check_in_time || '08:00')
   const [checkOutTime, setCheckOutTime] = useState(settings.office_check_out_time || '17:00')
   const [tolerance, setTolerance] = useState(settings.office_late_tolerance_minutes || '15')
+  const [latitude, setLatitude] = useState(settings.office_latitude || '-6.200000')
+  const [longitude, setLongitude] = useState(settings.office_longitude || '106.816666')
+  const [maxDistance, setMaxDistance] = useState(settings.office_max_distance_meters || '50')
+  const [locationActive, setLocationActive] = useState(settings.office_location_active !== 'false')
+  const [detectingLocation, setDetectingLocation] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
@@ -52,6 +57,41 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
     }
   }
 
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolokasi tidak didukung oleh browser Anda.')
+      return
+    }
+
+    setDetectingLocation(true)
+    setError('')
+    setSuccess('')
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude.toFixed(6))
+        setLongitude(position.coords.longitude.toFixed(6))
+        setSuccess('Lokasi GPS berhasil dideteksi!')
+        setDetectingLocation(false)
+        setTimeout(() => setSuccess(''), 4000)
+      },
+      (err) => {
+        console.error('Error getting location:', err)
+        let errorMsg = 'Gagal mendeteksi lokasi GPS.'
+        if (err.code === err.PERMISSION_DENIED) {
+          errorMsg = 'Izin akses lokasi GPS ditolak oleh browser.'
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          errorMsg = 'Informasi lokasi tidak tersedia.'
+        } else if (err.code === err.TIMEOUT) {
+          errorMsg = 'Waktu permintaan lokasi habis.'
+        }
+        setError(errorMsg)
+        setDetectingLocation(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -67,6 +107,10 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
           office_check_in_time: checkInTime,
           office_check_out_time: checkOutTime,
           office_late_tolerance_minutes: tolerance,
+          office_latitude: latitude,
+          office_longitude: longitude,
+          office_max_distance_meters: maxDistance,
+          office_location_active: String(locationActive),
         }),
       })
 
@@ -175,6 +219,92 @@ export default function SettingsClient({ settings }: SettingsClientProps) {
             <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
               Karyawan yang melakukan absen masuk lebih dari jam masuk + toleransi akan ditandai sebagai <strong>Terlambat</strong>.
             </p>
+          </div>
+        </div>
+
+        {/* Lokasi & Radius Kantor (Geofencing) */}
+        <div>
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-50">
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Lokasi & Radius Kantor (Geofencing)</h3>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={locationActive}
+                onChange={(e) => setLocationActive(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <span className="ml-2.5 text-xs font-bold text-slate-650">{locationActive ? 'Aktif' : 'Nonaktif'}</span>
+            </label>
+          </div>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <label htmlFor="latitude" className="block text-xs font-bold text-slate-500 mb-1.5">
+                  Latitude Kantor {locationActive && <span className="text-red-500">*</span>}
+                </label>
+                <input
+                  type="text"
+                  id="latitude"
+                  required={locationActive}
+                  disabled={!locationActive}
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                  className={`w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-700 ${!locationActive ? 'bg-slate-50 text-slate-400 cursor-not-allowed border-slate-100' : ''}`}
+                  placeholder="-6.200000"
+                />
+              </div>
+              <div className="flex-1">
+                <label htmlFor="longitude" className="block text-xs font-bold text-slate-500 mb-1.5">
+                  Longitude Kantor {locationActive && <span className="text-red-500">*</span>}
+                </label>
+                <input
+                  type="text"
+                  id="longitude"
+                  required={locationActive}
+                  disabled={!locationActive}
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                  className={`w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-700 ${!locationActive ? 'bg-slate-50 text-slate-400 cursor-not-allowed border-slate-100' : ''}`}
+                  placeholder="106.816666"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={detectingLocation || !locationActive}
+                onClick={handleDetectLocation}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-xs font-bold transition-all border border-slate-150"
+              >
+                <MapPin className={`w-4 h-4 text-blue-600 ${detectingLocation ? 'animate-bounce' : ''}`} />
+                {detectingLocation ? 'Mendeteksi GPS...' : 'Gunakan Lokasi Saya Saat Ini'}
+              </button>
+            </div>
+
+            <div>
+              <label htmlFor="max_distance" className="block text-xs font-bold text-slate-500 mb-1.5">
+                Radius Maksimal Absensi (meter) {locationActive && <span className="text-red-500">*</span>}
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  id="max_distance"
+                  required={locationActive}
+                  disabled={!locationActive}
+                  min="5"
+                  max="5000"
+                  value={maxDistance}
+                  onChange={(e) => setMaxDistance(e.target.value)}
+                  className={`w-32 px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-700 ${!locationActive ? 'bg-slate-50 text-slate-400 cursor-not-allowed border-slate-100' : ''}`}
+                />
+                <span className="text-sm text-slate-500 font-semibold">meter</span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                Karyawan wajib berada dalam jarak radius ini untuk melakukan absensi. Rekomendasi: minimal <strong>50 meter</strong> untuk mengantisipasi ketidakakuratan GPS pada handphone.
+              </p>
+            </div>
           </div>
         </div>
 

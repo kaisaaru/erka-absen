@@ -61,6 +61,10 @@ async function main() {
     { key: 'office_check_in_time', value: '08:00' },
     { key: 'office_check_out_time', value: '17:00' },
     { key: 'office_late_tolerance_minutes', value: '15' },
+    { key: 'office_latitude', value: '-6.200000' },
+    { key: 'office_longitude', value: '106.816666' },
+    { key: 'office_max_distance_meters', value: '50' },
+    { key: 'office_location_active', value: 'true' },
   ]
 
   for (const set of settings) {
