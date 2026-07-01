@@ -9,6 +9,8 @@ Sistem Absensi Karyawan Berbasis QR Code Dinamis dan Real-time, dibangun dengan 
 - **Authentication & Security**: Login dengan HTTP-Only Cookie JWT aman dan perlindungan rute halaman (Admin / Karyawan).
 - **Dashboard Statistik (Admin)**: Visualisasi grafis kehadiran mingguan, sesi aktif hari ini, dan summary data kehadiran cepat (Hadir, WFH, Tugas Luar, Izin/Sakit, Alpha).
 - **Sistem Absensi Hybrid (AI)**: Menggabungkan Scan QR Code Dinamis dan **Face Recognition AI (Pemindaian Wajah)** untuk mencegah kecurangan absensi.
+- **Validasi Geofencing**: Deteksi koordinat lokasi (GPS) karyawan dengan algoritma Haversine untuk membatasi jarak presensi dalam radius kantor.
+- **UI & UX Modern**: Popup notifikasi Toast dengan progress timer animasi, Top Loading Bar progresif warna-warni saat routing halaman, dan desain antarmuka glassmorphism.
 - **Generate QR & Token**: Pembuatan QR Code dinamis dengan durasi kadaluarsa yang dapat diatur serta token input manual.
 - **Kelola Karyawan**: CRUD Karyawan (Create, Read, Update, Delete) yang menggunakan antarmuka modern (Modal overlay & Client-side Search).
 - **Absensi & Status**: Pemantauan kehadiran real-time dan fitur edit status absensi karyawan (Hadir, WFH, Tugas Luar, Izin, Sakit, Alpha).
@@ -26,7 +28,7 @@ Sistem Absensi Karyawan Berbasis QR Code Dinamis dan Real-time, dibangun dengan 
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
 - **Exporting**: `exceljs` & `jspdf` / `jspdf-autotable`
 - **Machine Learning / AI**: `face-api.js` (TensorFlow.js)
-- **Utility**: `bcryptjs` (Hashing), `jsonwebtoken` (Auth), `lucide-react` (Icons), `qrcode` (QR Generator)
+- **Utility**: `bcryptjs` (Hashing), `jsonwebtoken` (Auth), `lucide-react` (Icons), `qrcode` (QR Generator), `nextjs-toploader` (Progress Bar)
 
 ---
 
