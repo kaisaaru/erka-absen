@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Edit2, Search, X, CheckCircle, ChevronDown, Calendar } from 'lucide-react'
+import { Edit2, Search, X, CheckCircle, ChevronDown, Calendar, Trash2 } from 'lucide-react'
 import { formatReadableDate } from '@/lib/date-utils'
 
 interface AttendanceRecord {
@@ -84,6 +84,10 @@ export default function AttendancesManagement({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  // Delete Modal states
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteRecord, setDeleteRecord] = useState<AttendanceRecord | null>(null)
 
   // Sync state when filters from page change
   useEffect(() => {
@@ -177,6 +181,43 @@ export default function AttendancesManagement({
       if (res.ok && data.success) {
         setShowEditModal(false)
         triggerSuccessAlert('Status absensi berhasil diperbarui.')
+        startTransition(() => {
+          router.refresh()
+        })
+      } else {
+        setError(data.message || 'Terjadi kesalahan.')
+      }
+    } catch (err) {
+      setError('Koneksi server gagal.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Delete attendance handler
+  const handleDeleteClick = (rec: AttendanceRecord) => {
+    setDeleteRecord(rec)
+    setShowDeleteModal(true)
+    setError('')
+  }
+
+  const handleDeleteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!deleteRecord) return
+    setLoading(true)
+    setError('')
+
+    try {
+      const res = await fetch(`/api/admin/attendances/${deleteRecord.id}`, {
+        method: 'DELETE',
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        setShowDeleteModal(false)
+        setDeleteRecord(null)
+        triggerSuccessAlert('Data absensi berhasil dihapus.')
         startTransition(() => {
           router.refresh()
         })
@@ -431,6 +472,13 @@ export default function AttendancesManagement({
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
+                      <button
+                        onClick={() => handleDeleteClick(rec)}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-1"
+                        title="Hapus Absensi"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -541,6 +589,59 @@ export default function AttendancesManagement({
                   className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all disabled:opacity-50"
                 >
                   {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE ATTENDANCE MODAL OVERLAY */}
+      {showDeleteModal && deleteRecord && (
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-2xl border border-slate-100 shadow-2xl p-6 sm:p-8 relative">
+            <button 
+              onClick={() => setShowDeleteModal(false)}
+              className="absolute right-6 top-6 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Hapus Absensi</h3>
+
+            <form onSubmit={handleDeleteSubmit} className="space-y-4">
+              <p className="text-sm text-slate-500">
+                Apakah Anda yakin ingin menghapus data absensi ini? Tindakan ini tidak dapat dibatalkan.
+              </p>
+
+              <div className="p-4 bg-slate-50 rounded-xl space-y-2 border border-slate-100 text-xs text-slate-600">
+                <div>
+                  <span className="font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Karyawan</span>
+                  <span className="font-bold text-slate-800 text-sm">{deleteRecord.employeeName}</span>
+                </div>
+                <div>
+                  <span className="font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Tanggal</span>
+                  <span className="font-semibold text-slate-700 text-sm">{formatReadableDate(new Date(deleteRecord.attendanceDate))}</span>
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-xs text-red-500 font-semibold">{error}</p>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-5 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold shadow-lg shadow-red-100 hover:bg-red-700 transition-all disabled:opacity-50"
+                >
+                  {loading ? 'Menghapus...' : 'Hapus Absensi'}
                 </button>
               </div>
             </form>

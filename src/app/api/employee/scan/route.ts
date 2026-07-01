@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
-import { checkIsLate, getJakartaTimeString, getJakartaDateString } from '@/lib/date-utils'
+import { checkIsLate, getJakartaTimeString, getJakartaDateString, timeToMinutes } from '@/lib/date-utils'
 import { recordLog } from '@/lib/logger'
 
 function getEuclideanDistance(arr1: number[], arr2: number[]): number {
@@ -204,6 +204,20 @@ export async function POST(request: Request) {
       if (existing.check_out_time) {
         return NextResponse.json(
           { success: false, message: 'Anda sudah melakukan absen pulang hari ini.' },
+          { status: 400 }
+        )
+      }
+
+      // Check if current time is before the scheduled check-out time
+      const currentMinutes = timeToMinutes(currentShortTime)
+      const officeCheckOutMinutes = timeToMinutes(officeCheckOutStr)
+
+      if (currentMinutes < officeCheckOutMinutes) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            message: `Belum saatnya absen pulang. Jam pulang kantor adalah pukul ${officeCheckOutStr} WIB.` 
+          },
           { status: 400 }
         )
       }

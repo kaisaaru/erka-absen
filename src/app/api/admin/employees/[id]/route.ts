@@ -10,7 +10,27 @@ export async function PUT(
   try {
     const { id } = await params
     const userId = Number(id)
-    const { name, email, password, phone, position, employee_id } = await request.json()
+    const { name, email, password, phone, position, employee_id, reset_face } = await request.json()
+
+    // Handle Reset Face Registration
+    if (reset_face) {
+      const employee = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          face_descriptor: null,
+          face_image_registered: null,
+          avatar: null, // Clear avatar as it's generated from face register
+        },
+      })
+
+      await recordLog('Reset Wajah Karyawan', `Berhasil me-reset registrasi wajah karyawan: ${employee.name} (${employee.email}).`, userId)
+
+      return NextResponse.json({
+        success: true,
+        message: 'Registrasi wajah berhasil di-reset.',
+        employee,
+      })
+    }
 
     if (!name || !email) {
       return NextResponse.json(
